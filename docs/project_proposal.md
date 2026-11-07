@@ -115,14 +115,14 @@ The proposed solution is a modular, menu-driven command-line application written
 | FR-01 | The system shall add a new tag with ID, description, unit and four alarm limits.             | High     | Demonstration / Test |
 | FR-02 | The system shall validate tag IDs for format and reject duplicates.                          | High     | Test                |
 | FR-03 | The system shall edit the description, unit and alarm limits of an existing tag.             | Medium   | Demonstration       |
-| FR-04 | The system shall delete a tag together with its readings.                                    | Medium   | Demonstration / Test |
-| FR-05 | The system shall search for a tag by ID and list all tags.                                   | High     | Demonstration / Test |
+| FR-04 | The system shall delete a tag together with its readings.                                    | Medium   | Demonstration       |
+| FR-05 | The system shall search for a tag by ID and list all tags.                                   | High     | Demonstration       |
 | FR-06 | The system shall add a reading manually after validating tag, timestamp and value.           | High     | Demonstration / Test |
 | FR-07 | The system shall import readings from a CSV file and report how many lines were rejected.    | High     | Demonstration       |
 | FR-08 | The system shall reject readings with an unknown tag, invalid timestamp or invalid value.    | High     | Test                |
 | FR-09 | The system shall classify each reading as Normal, Low, Low-Low, High or High-High.           | High     | Test                |
-| FR-10 | The system shall filter readings by tag, alarm status and time range.                        | Medium   | Demonstration / Test |
-| FR-11 | The system shall sort readings by value or by timestamp.                                     | Medium   | Test                |
+| FR-10 | The system shall filter readings by tag, alarm status and time range.                        | Medium   | Demonstration       |
+| FR-11 | The system shall sort readings by value or by timestamp.                                     | Medium   | Demonstration       |
 | FR-12 | The system shall calculate minimum, maximum, mean and standard deviation for a tag.          | High     | Test                |
 | FR-13 | The system shall calculate the time a tag spent in alarm.                                    | Medium   | Test                |
 | FR-14 | The system shall generate a shift report and save it to a text file.                         | High     | Demonstration       |
@@ -144,14 +144,26 @@ The proposed solution is a modular, menu-driven command-line application written
 
 ## 4.3 Requirement Traceability
 
-This table will be completed after the detailed design and unit-test plan are prepared.
+Unit tests (UT-xx) are defined in `detailed_design.md`. Requirements without a unit test are verified by demonstration or negative testing.
 
-| Requirement ID | Module         | Function or Feature       | Test ID |
-|----------------|----------------|---------------------------|---------|
-| FR-01          | tag            | addTag()                  | To be assigned |
-| FR-02          | validation     | validateTagId()           | To be assigned |
-| FR-09          | alarm          | classifyReading()         | To be assigned |
-| FR-12          | statistics     | calculateMean(), calculateStdDev() | To be assigned |
+| Requirement ID | Module                         | Function or Feature                                                                                   | Test ID              |
+|----------------|--------------------------------|-------------------------------------------------------------------------------------------------------|----------------------|
+| FR-01          | tag, validation                | addTag(), validateDescription(), validateUnit(), validateAlarmLimits()                                | UT-17, demonstration |
+| FR-02          | validation, tag                | validateTagId(), addTag()                                                                             | UT-09 to UT-12       |
+| FR-03          | tag, validation                | editTag(), validateAlarmLimits()                                                                      | UT-17, demonstration |
+| FR-04          | tag, reading                   | deleteTag(), deleteReadingsByTag()                                                                    | Demonstration        |
+| FR-05          | tag, report                    | findTagById(), printTags()                                                                            | Demonstration        |
+| FR-06          | reading, validation            | addReading(), validateTimestamp(), parseDouble()                                                      | UT-13, UT-19         |
+| FR-07          | file_handler                   | importReadingsCsv()                                                                                   | Demonstration        |
+| FR-08          | validation, reading            | validateTimestamp(), parseDouble(), addReading()                                                      | UT-14, UT-16, UT-19, UT-20 |
+| FR-09          | alarm                          | classifyReading()                                                                                     | UT-05 to UT-08       |
+| FR-10          | reading, report                | filterReadings(), printReadings()                                                                     | Demonstration        |
+| FR-11          | reading                        | sortReadings()                                                                                        | Demonstration        |
+| FR-12          | statistics, reading, report    | calculateMean(), calculateStdDev(), calculateMin(), calculateMax(), getValuesForTag(), printTagStatistics() | UT-01 to UT-04 |
+| FR-13          | alarm                          | calculateTimeInAlarm()                                                                                | UT-18                |
+| FR-14          | report                         | saveShiftReport()                                                                                     | Demonstration        |
+| FR-15          | file_handler                   | saveTags(), loadTags(), saveReadings(), importReadingsCsv()                                           | Demonstration        |
+| FR-16          | validation, report, main       | validateMenuChoice(), readLine(), statusToMessage()                                                   | Negative testing, UT-02, UT-08 |
 
 ---
 
