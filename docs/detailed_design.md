@@ -548,9 +548,156 @@ All functions use the `Status_t` enumeration defined in section 1.3. Every retur
 
 ---
 
-# 8. Remaining Parts (to be added)
+# 8. Module Descriptions and Dependencies
 
-- Detailed module descriptions (dependencies between modules)
-- Application flowchart
-- Unit-test setup and cleanup details
-- Completed requirement traceability table (in the proposal)
+## 8.1 Shared Definitions
+
+`common.h` holds all shared types and constants: the constants from section 1.1, `Tag_t`, `Reading_t`, `ReadingFilter_t`, `AlarmStatus_t`, `SortField_t`, `SortOrder_t` and `Status_t`. Every other header includes it. It contains no function implementations.
+
+## 8.2 Module Summary
+
+| Module | Depends On | Public Functions | Data Used |
+|--------|-----------|------------------|-----------|
+| main | all modules | `main` only (menu and control flow) | Owns `tags`, `readings` and their counts |
+| validation | common | `validateTagId`, `validateTimestamp`, `validateAlarmLimits`, `parseDouble`, `readLine`, `validateMenuChoice`, `validateDescription`, `validateUnit` | Input text only |
+| statistics | common | `calculateMean`, `calculateStdDev`, `calculateMin`, `calculateMax` | Arrays of doubles |
+| alarm | common | `classifyReading`, `calculateTimeInAlarm` | `Tag_t`, `Reading_t` |
+| tag | validation, common | `addTag`, `findTagById`, `editTag`, `deleteTag` | `Tag_t` array |
+| reading | validation, tag, alarm, common | `addReading`, `deleteReadingsByTag`, `filterReadings`, `sortReadings`, `getValuesForTag` | `Reading_t` array |
+| file_handler | validation, tag, common | `saveTags`, `loadTags`, `saveReadings`, `importReadingsCsv` | Data files |
+| report | statistics, alarm, reading, common | `printTags`, `printReadings`, `printTagStatistics`, `printAlarmSummary`, `saveShiftReport`, `statusToMessage` | Read-only access to arrays |
+
+## 8.3 Dependency Rules
+
+1. Dependencies only point downwards (`main` to feature modules, feature modules to `validation`, `statistics` and `alarm`, all to `common`). There are no circular dependencies.
+2. `validation`, `statistics` and `alarm` do not depend on other feature modules, so they can be unit tested on their own.
+3. No global variables: `main` owns the arrays and passes them to functions by pointer.
+4. Each `.c` file includes its own header first, then other headers, and only the headers it needs.
+
+---
+
+# 9. Application Flow
+
+## 9.1 Main Menu
+
+| Choice | Menu Item | Main Functions Called |
+|--------|-----------|-----------------------|
+| 1 | Manage tags (add, edit, delete, search, list) | `addTag`, `editTag`, `deleteTag`, `deleteReadingsByTag`, `findTagById`, `printTags` |
+| 2 | Add reading | `addReading` |
+| 3 | Import readings from CSV | `importReadingsCsv` |
+| 4 | View, filter and sort readings | `filterReadings`, `sortReadings`, `printReadings` |
+| 5 | Show statistics for a tag | `printTagStatistics` |
+| 6 | Show alarm summary | `printAlarmSummary` |
+| 7 | Generate shift report | `saveShiftReport` |
+| 8 | Save data | `saveTags`, `saveReadings` |
+| 0 | Save and exit | `saveTags`, `saveReadings` |
+
+Valid menu choices are 0 to 8.
+
+## 9.2 Main Application Flowchart
+
+```mermaid
+flowchart TD
+    A([Start]) --> B[Initialise arrays and counts]
+    B --> C[Load tags file]
+    C --> D[Load readings file]
+    D --> E[Display menu]
+    E --> F[Read user choice]
+    F --> G{Choice valid?}
+    G -- No --> H[Show error message]
+    H --> E
+    G -- Yes --> I{Choice is 0?}
+    I -- No --> J[Call matching module function]
+    J --> K[Show success or error message]
+    K --> E
+    I -- Yes --> L[Save tags and readings]
+    L --> M{Save succeeded?}
+    M -- No --> N[Show error message]
+    N --> E
+    M -- Yes --> O([Exit])
+```
+
+## 9.3 Operation Flow: Add Reading
+
+```mermaid
+flowchart TD
+    A([Choose Add reading]) --> B[Read tag ID]
+    B --> C{Tag exists?}
+    C -- No --> X[Show tag not found and cancel]
+    C -- Yes --> D[Read timestamp]
+    D --> E{Timestamp valid?}
+    E -- No --> Y[Show error and cancel]
+    E -- Yes --> F[Read value]
+    F --> G{Value valid number in range?}
+    G -- No --> Y
+    G -- Yes --> H{Storage full?}
+    H -- Yes --> Z[Show storage full and cancel]
+    H -- No --> I[Append reading]
+    I --> J[Show alarm status of the new reading]
+    J --> K([Return to menu])
+    X --> K
+    Y --> K
+    Z --> K
+```
+
+## 9.4 Operation Flow: Import Readings from CSV
+
+```mermaid
+flowchart TD
+    A([Choose Import]) --> B[Read file path]
+    B --> C{Path valid?}
+    C -- No --> Z[Show error and cancel]
+    C -- Yes --> D[Open file]
+    D --> E{File opened?}
+    E -- No --> Z
+    E -- Yes --> F[Read next line]
+    F --> G{End of file?}
+    G -- Yes --> L[Close file and show imported and rejected counts]
+    G -- No --> H{Header or blank line?}
+    H -- Yes --> F
+    H -- No --> I{Line valid and storage not full?}
+    I -- Valid --> J[Store reading and count it as imported]
+    I -- Invalid --> K[Count it as rejected]
+    I -- Full --> L
+    J --> F
+    K --> F
+    L --> M([Return to menu])
+    Z --> M
+```
+
+---
+
+# 10. Unit-Test Setup and Cleanup
+
+## 10.1 Test Files and Mapping
+
+| Test File | Module Tested | Tests |
+|-----------|---------------|-------|
+| `tests/test_statistics.cpp` | statistics | UT-01 to UT-04 |
+| `tests/test_alarm.cpp` | alarm | UT-05 to UT-08, UT-18 |
+| `tests/test_validation.cpp` | validation | UT-09 to UT-17, UT-19, UT-20 |
+
+Tests are written in C++ because Google Test needs it. Each C header includes an `extern "C"` guard so the C++ test files can link to the C code.
+
+## 10.2 Test Data and Setup
+
+- All tested functions are pure (no file or screen access), so no temporary files are needed and nothing has to be cleaned up.
+- Each test builds its own input (a local array, a local `Tag_t` or a string literal). No data is shared between tests, so tests are independent and run in any order.
+- Test names follow the pattern `TEST(SuiteName, BehaviourDescription)`, for example `TEST(StatisticsTest, MeanOfThreeValuesIsTwo)`, with the UT ID in a comment above it.
+- Decimal results are compared with `EXPECT_NEAR(actual, expected, 1e-9)`. Boundary tests use values that a `double` stores exactly (for example 80.0 and 120.0), so comparisons are not affected by rounding.
+- Timestamp tests use fixed text and never read the system clock, so they give the same result on any day.
+- If file tests are added later, they will write to a temporary file in `tests/` and delete it in `TearDown`.
+
+## 10.3 Test Command
+
+```
+make test
+```
+
+This compiles the C sources and the test files, links them with Google Test, runs the test executable and reports passed and failed tests.
+
+---
+
+# 11. Design Status
+
+The detailed design is complete: data design, function design for every module, validation plan, file-handling plan, error-handling strategy, module dependencies, application flow and unit-test plan. Coding starts next, one module per commit.
