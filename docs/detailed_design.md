@@ -75,6 +75,29 @@ typedef struct
 | timestamp | char[TIMESTAMP_LEN + 1]   | `YYYY-MM-DD HH:MM:SS`              | When the reading was taken        |
 | value     | double                    | MIN_VALID_VALUE to MAX_VALID_VALUE | Measured value in the tag's unit  |
 
+### Structure: ReadingFilter_t
+
+Purpose: Describes which readings the user wants to see. An empty text field means "no restriction" for that condition.
+
+```c
+typedef struct
+{
+    char          tag_id[MAX_TAG_ID_LEN + 1];
+    int           filter_by_status;
+    AlarmStatus_t status;
+    char          start_time[TIMESTAMP_LEN + 1];
+    char          end_time[TIMESTAMP_LEN + 1];
+} ReadingFilter_t;
+```
+
+| Member           | C Type        | Valid Range or Size           | Description                                           |
+|------------------|---------------|-------------------------------|-------------------------------------------------------|
+| tag_id           | char[16]      | Empty or an existing tag ID   | Empty means all tags                                  |
+| filter_by_status | int           | 0 or 1                        | 1 means only readings with the given alarm status     |
+| status           | AlarmStatus_t | Any AlarmStatus_t value       | Alarm state to keep when `filter_by_status` is 1      |
+| start_time       | char[20]      | Empty or a valid timestamp    | Earliest time to include; empty means no lower bound  |
+| end_time         | char[20]      | Empty or a valid timestamp    | Latest time to include; empty means no upper bound    |
+
 ### Relationship Between Records
 
 One tag has many readings (one-to-many). `Reading_t.tag_id` refers to `Tag_t.id`. A reading cannot be added for an unknown tag, and deleting a tag also deletes its readings.
@@ -181,8 +204,8 @@ typedef enum
 | Data Item     | C Type    | Valid Range or Size                  | Validation Rule                                                                 | Description                       |
 |---------------|-----------|--------------------------------------|---------------------------------------------------------------------------------|-----------------------------------|
 | Tag ID        | char[16]  | 3 to 15 characters                   | First character is a letter; remaining are letters, digits or hyphen; unique    | Identifies a tag, for example TT-101 |
-| Description   | char[48]  | 1 to 47 characters                   | Not empty; no newline characters                                                | Text description of the tag       |
-| Unit          | char[8]   | 1 to 7 characters                    | Not empty; no spaces                                                            | Engineering unit, for example degC |
+| Description   | char[48]  | 1 to 47 characters                   | Not empty; no comma or newline characters                                                | Text description of the tag       |
+| Unit          | char[8]   | 1 to 7 characters                    | Not empty; no spaces or commas                                                            | Engineering unit, for example degC |
 | Alarm limits  | double    | -100000.0 to 100000.0                | Numeric; low_low < low < high < high_high                                       | Four alarm thresholds per tag     |
 | Timestamp     | char[20]  | Exactly 19 characters                | Format `YYYY-MM-DD HH:MM:SS`; year 2000 to 2100; valid month, day (with leap years), hour 0-23, minute 0-59, second 0-59 | Time of a reading |
 | Reading value | double    | -100000.0 to 100000.0                | Numeric only; no text or empty input                                            | Measured process value            |
@@ -350,12 +373,184 @@ These cover 5 functions across 3 test files (`test_statistics.cpp`, `test_alarm.
 
 ---
 
-# 4. Remaining Parts (to be added)
+# 4. Function Design (Other Modules)
 
-- Detailed module descriptions
-- Function design for `tag`, `reading`, `file_handler` and `report`
-- Input-validation plan
-- File-handling plan
-- Error-handling strategy
-- Application flow
-- Complete unit-test plan (setup and cleanup)
+These functions follow the same rules as section 2: every function returns `Status_t`, results come back through output parameters, and pointer arguments are checked for NULL. In every row, "Postcondition: unchanged on error" applies to all output parameters and arrays.
+
+## 4.1 Module: tag (`tag.c`, `tag.h`)
+
+| Function | Behaviour | Return values | Req. |
+|----------|-----------|---------------|------|
+| `Status_t addTag(Tag_t *tags, int *tag_count, const Tag_t *new_tag);` | Validates the ID, description, unit and limits, rejects a duplicate ID or a full array, then appends a copy of the tag. Postcondition: `*tag_count` increases by 1 on success. | SUCCESS, INVALID_ARGUMENT, INVALID_INPUT, DUPLICATE, CAPACITY_FULL | FR-01, FR-02 |
+| `Status_t findTagById(const Tag_t *tags, int tag_count, const char *id, int *index);` | Searches for the ID. Postcondition: `*index` holds the position on success. | SUCCESS, INVALID_ARGUMENT, NOT_FOUND | FR-05 |
+| `Status_t editTag(Tag_t *tags, int tag_count, const char *id, const Tag_t *updated);` | Validates `updated`, then replaces the description, unit and four limits of the tag with this ID. The ID itself cannot be changed. | SUCCESS, INVALID_ARGUMENT, INVALID_INPUT, NOT_FOUND | FR-03 |
+| `Status_t deleteTag(Tag_t *tags, int *tag_count, const char *id);` | Removes the tag by shifting later tags up one place. Postcondition: `*tag_count` decreases by 1. Readings are removed separately: `main` calls `deleteTag` first and, on success, `deleteReadingsByTag` for the same ID. | SUCCESS, INVALID_ARGUMENT, NOT_FOUND | FR-04 |
+
+Listing all tags is done by `printTags` in the report module.
+
+## 4.2 Module: reading (`reading.c`, `reading.h`)
+
+| Function | Behaviour | Return values | Req. |
+|----------|-----------|---------------|------|
+| `Status_t addReading(Reading_t *readings, int *reading_count, const Tag_t *tags, int tag_count, const char *tag_id, const char *timestamp, double value);` | Checks that the tag exists, the timestamp is valid, the value is in range and the array is not full, then appends the reading. | SUCCESS, INVALID_ARGUMENT, INVALID_INPUT, NOT_FOUND, CAPACITY_FULL | FR-06, FR-08 |
+| `Status_t deleteReadingsByTag(Reading_t *readings, int *reading_count, const char *tag_id, int *removed);` | Removes every reading of the tag and closes the gaps. Postcondition: `*removed` holds how many were deleted (0 is allowed). | SUCCESS, INVALID_ARGUMENT | FR-04 |
+| `Status_t filterReadings(const Reading_t *readings, int count, const Tag_t *tags, int tag_count, const ReadingFilter_t *filter, Reading_t *out, int *out_count);` | Copies the readings that match all active conditions into `out` (the caller provides room for `MAX_READINGS`). Time comparison uses `strcmp`, because the timestamp format sorts alphabetically. An empty result is valid (`*out_count` is 0). | SUCCESS, INVALID_ARGUMENT, INVALID_INPUT (bad timestamp or start later than end) | FR-10 |
+| `Status_t sortReadings(Reading_t *readings, int count, SortField_t field, SortOrder_t order);` | Sorts the array in place with a stable insertion sort (the array is small, so simplicity wins). | SUCCESS, INVALID_ARGUMENT (NULL, negative count or invalid enum value) | FR-11 |
+| `Status_t getValuesForTag(const Reading_t *readings, int count, const char *tag_id, double *values, int *value_count);` | Copies the values of one tag into a plain array so the statistics functions can use it. Postcondition: `*value_count` holds how many were copied. | SUCCESS, INVALID_ARGUMENT, EMPTY (the tag has no readings) | FR-12 |
+
+## 4.3 Module: file_handler (`file_handler.c`, `file_handler.h`)
+
+The readings file and a user's CSV import file use the same format, so one function loads both and there is no duplicated parsing logic.
+
+| Function | Behaviour | Return values | Req. |
+|----------|-----------|---------------|------|
+| `Status_t saveTags(const char *path, const Tag_t *tags, int tag_count);` | Rewrites the whole tags file, one line per tag. Every `fprintf` result and the final `fclose` are checked. | SUCCESS, INVALID_ARGUMENT, FILE_OPEN_ERROR, FILE_WRITE_ERROR | FR-15 |
+| `Status_t loadTags(const char *path, Tag_t *tags, int *tag_count, int *rejected);` | Reads each line with `fgets`, skips blank lines, parses 7 fields and validates each with the validation module. Invalid or duplicate lines are skipped and counted in `*rejected`. | SUCCESS, INVALID_ARGUMENT, FILE_OPEN_ERROR, FILE_READ_ERROR, INVALID_FILE_DATA (every non-blank line was rejected) | FR-15, FR-16 |
+| `Status_t saveReadings(const char *path, const Reading_t *readings, int reading_count);` | Rewrites the whole readings file, one line per reading. | SUCCESS, INVALID_ARGUMENT, FILE_OPEN_ERROR, FILE_WRITE_ERROR | FR-15 |
+| `Status_t importReadingsCsv(const char *path, Reading_t *readings, int *reading_count, const Tag_t *tags, int tag_count, int *imported, int *rejected);` | Reads lines of `tag_id,timestamp,value`. An optional first line starting with `tag_id` is treated as a header and skipped. Each line is validated; bad lines are skipped and counted. If the array becomes full, the import stops and keeps what was added. Also used at startup to load the readings file. | SUCCESS, INVALID_ARGUMENT, FILE_OPEN_ERROR, FILE_READ_ERROR, CAPACITY_FULL, INVALID_FILE_DATA (every non-blank line was rejected) | FR-07, FR-08, FR-15 |
+
+## 4.4 Module: report (`report.c`, `report.h`)
+
+| Function | Behaviour | Return values | Req. |
+|----------|-----------|---------------|------|
+| `Status_t printTags(const Tag_t *tags, int tag_count);` | Prints a table of all tags with their limits. | SUCCESS, INVALID_ARGUMENT, EMPTY | FR-05 |
+| `Status_t printReadings(const Reading_t *readings, int count, const Tag_t *tags, int tag_count);` | Prints a table of readings with the alarm status of each. | SUCCESS, INVALID_ARGUMENT, EMPTY | FR-10 |
+| `Status_t printTagStatistics(const Tag_t *tag, const Reading_t *readings, int count);` | Prints minimum, maximum, mean and standard deviation for one tag. | SUCCESS, INVALID_ARGUMENT, EMPTY | FR-12 |
+| `Status_t printAlarmSummary(const Tag_t *tags, int tag_count, const Reading_t *readings, int count);` | Prints, for every tag, the number of readings in each alarm state and the time in alarm. | SUCCESS, INVALID_ARGUMENT, EMPTY | FR-09, FR-13 |
+| `Status_t saveShiftReport(const char *path, const Tag_t *tags, int tag_count, const Reading_t *readings, int count);` | Writes the full shift report: for each tag, the reading count, statistics, alarm counts and time in alarm. Tags with no readings show "No readings". | SUCCESS, INVALID_ARGUMENT, EMPTY, FILE_OPEN_ERROR, FILE_WRITE_ERROR | FR-14 |
+| `const char *statusToMessage(Status_t status);` | Returns a fixed user-friendly message for a status code, never NULL; unknown values give "Unknown error". | Not applicable (returns text) | FR-16 |
+
+`printAlarmSummary` and `saveShiftReport` share one internal routine for the per-tag summary, so the logic is written once.
+
+## 4.5 Module: validation (additional functions)
+
+| Function | Behaviour | Return values | Req. |
+|----------|-----------|---------------|------|
+| `Status_t readLine(char *buffer, int size);` | Reads one line with `fgets`, removes the newline, and detects a line that was too long (the rest is discarded). Replaces unsafe input functions. | SUCCESS, INVALID_ARGUMENT, INVALID_INPUT (too long or input closed) | FR-16 |
+| `Status_t validateMenuChoice(const char *text, int min, int max, int *choice);` | Accepts only a whole number between `min` and `max`. | SUCCESS, INVALID_ARGUMENT, INVALID_INPUT | FR-16 |
+| `Status_t validateDescription(const char *text);` | 1 to 47 characters, no comma or newline. | SUCCESS, INVALID_ARGUMENT, INVALID_INPUT | FR-01 |
+| `Status_t validateUnit(const char *text);` | 1 to 7 characters, no spaces or commas. | SUCCESS, INVALID_ARGUMENT, INVALID_INPUT | FR-01 |
+
+---
+
+# 5. Input-Validation Plan
+
+| Input | Source | Validation Rule | Invalid Example | Expected Error Behaviour |
+|-------|--------|-----------------|-----------------|--------------------------|
+| Menu choice | User | Whole number within the menu range | `abc`, `9`, empty | Error message; menu shown again |
+| Tag ID | User, file | 3 to 15 characters; starts with a letter; letters, digits, hyphen | `1TT`, `T`, 16 characters | Operation cancelled; file line skipped |
+| Duplicate tag ID | User, file | ID not already stored | `TT-101` added twice | DUPLICATE message; file line skipped |
+| Description | User, file | 1 to 47 characters; no comma or newline | empty, `Boiler, top` | Operation cancelled; file line skipped |
+| Unit | User, file | 1 to 7 characters; no spaces or commas | `deg C` | Operation cancelled; file line skipped |
+| Alarm limits | User, file | Numeric; in range; low_low < low < high < high_high | `50, 40, 30, 20`; `hot` | Operation cancelled; file line skipped |
+| Timestamp | User, file | `YYYY-MM-DD HH:MM:SS` with valid calendar values | `2025-02-29 10:00:00`, `7/11/26` | Reading rejected |
+| Reading value | User, file | One number in range, no extra text | `abc`, empty, `1e9` | Reading rejected |
+| Reading's tag | User, file | Tag must already exist | `XX-999` | NOT_FOUND message; line skipped |
+| Time range | User | Both timestamps valid; start not after end | start later than end | Error message; filter not applied |
+| Sort choice | User | One of the listed options | `3` when only 1 and 2 exist | Error message; menu shown again |
+| File path | User | Not empty; shorter than `MAX_LINE_LEN` | empty | Error message; import cancelled |
+| Over-long input line | User | Shorter than `MAX_LINE_LEN` | 300 characters | Rest of the line discarded; error message |
+| Data file line | File | Exactly 7 fields (tags) or 3 fields (readings), each validated | `TT-101,2026-11-07` | Line skipped and counted; summary shown |
+| Storage capacity | User, file | Fewer than `MAX_TAGS` or `MAX_READINGS` records | the 1001st reading | CAPACITY_FULL message; import stops |
+
+**Validation strategy:**
+
+1. All text input is read with `readLine` (`fgets`); `scanf` and `gets` are never used.
+2. Each value is checked by the validation module before it is stored, so invalid data never enters the arrays.
+3. File data goes through the same validators as typed data, so there is one set of rules.
+4. When user input is invalid, the program shows the message from `statusToMessage`, changes no data and returns to the menu. The program never crashes or exits because of bad input.
+
+---
+
+# 6. File-Handling Plan
+
+## 6.1 File Summary
+
+| File | Purpose | Format | Created By | Read By | Updated By |
+|------|---------|--------|------------|---------|------------|
+| `data/tags.txt` | Stores all tags and limits | Text | `saveTags` on first save | `loadTags` at startup | `saveTags` (rewrites the file) |
+| `data/readings.txt` | Stores all readings | Text (CSV) | `saveReadings` on first save | `importReadingsCsv` at startup | `saveReadings` (rewrites the file) |
+| User CSV file | Readings exported from a logger | Text (CSV) | The user (outside the program) | `importReadingsCsv` | Never (read only) |
+| `data/shift_report.txt` | Shift report for printing or sharing | Text | `saveShiftReport` | The user | `saveShiftReport` (overwrites) |
+
+Sample files `data/sample_tags.txt` and `data/sample_readings.csv` are committed so the program can be demonstrated.
+
+## 6.2 Record Format
+
+Tags file, one tag per line (7 comma-separated fields):
+
+```
+id,description,unit,low_low,low,high,high_high
+TT-101,Boiler outlet temperature,degC,40.0,50.0,120.0,140.0
+```
+
+Readings file and CSV import, one reading per line (3 fields). An optional header line is allowed in an import:
+
+```
+tag_id,timestamp,value
+TT-101,2026-11-07 08:00:00,72.5000
+```
+
+Numbers are written with 4 decimal places. Blank lines are ignored. Descriptions and units cannot contain commas, which keeps parsing simple and safe.
+
+## 6.3 File Operations
+
+| Operation | Function or Module | C Library Function | Failure Handling |
+|-----------|--------------------|--------------------|------------------|
+| Create or open | file_handler, report | `fopen` ("r" to read, "w" to write) | NULL result gives FILE_OPEN_ERROR |
+| Read | file_handler | `fgets` | `ferror` check gives FILE_READ_ERROR |
+| Write | file_handler, report | `fprintf` | Negative result gives FILE_WRITE_ERROR |
+| Update | file_handler | `fopen` "w" (rewrite whole file) | Same as write |
+| Close | file_handler, report | `fclose` | Non-zero result gives FILE_WRITE_ERROR when saving |
+
+## 6.4 File Error Conditions
+
+| Error Condition | Detection Method | Expected Behaviour |
+|-----------------|------------------|--------------------|
+| File does not exist | `fopen` returns NULL on load | At startup: "No saved data found", start with empty data. For a user import: show an error and return to the menu |
+| File cannot be opened | `fopen` returns NULL on save | Show the error with the file path; stay in the menu so the user can retry |
+| File is empty | No non-blank lines read | Load succeeds with 0 records |
+| File contains invalid data | Line fails parsing or validation | Skip the line, count it, show "N lines rejected" |
+| Read or write fails | `ferror`, `fprintf` or `fclose` result | Show the error and stay in the menu; data in memory is kept |
+
+---
+
+# 7. Error-Handling Strategy
+
+## 7.1 Status Representation
+
+All functions use the `Status_t` enumeration defined in section 1.3. Every returned status is checked by the caller and none is ignored. `statusToMessage` converts a status to text for the user.
+
+## 7.2 Error Catalogue
+
+| Error ID | Error Condition | Detection Location | Returned Status | User-Facing Behaviour |
+|----------|-----------------|--------------------|-----------------|-----------------------|
+| ERR-01 | Invalid menu choice | `validateMenuChoice` | INVALID_INPUT | "Invalid choice" and the menu is shown again |
+| ERR-02 | Invalid tag ID, description, unit or limits | validation module | INVALID_INPUT | Message; operation cancelled |
+| ERR-03 | Duplicate tag ID | `addTag` | DUPLICATE | "Tag already exists" |
+| ERR-04 | Tag or record not found | `findTagById`, `addReading` | NOT_FOUND | "Tag not found" |
+| ERR-05 | Tag or reading storage is full | `addTag`, `addReading`, import | CAPACITY_FULL | "Storage full"; import stops and reports how many were added |
+| ERR-06 | Invalid timestamp or reading value | `validateTimestamp`, `parseDouble` | INVALID_INPUT | Reading rejected with a message |
+| ERR-07 | NULL pointer or invalid argument | Start of every function | INVALID_ARGUMENT | Internal error message; operation skipped |
+| ERR-08 | No data to process | statistics, report functions | EMPTY | "No readings available" |
+| ERR-09 | File cannot be opened | file_handler | FILE_OPEN_ERROR | Message with the path; startup continues with empty data |
+| ERR-10 | Invalid file data | loaders, import | INVALID_FILE_DATA or rejected count | Bad lines skipped; count shown |
+| ERR-11 | File read or write failure | file_handler, report | FILE_READ_ERROR, FILE_WRITE_ERROR | Message; stay in the menu |
+| ERR-12 | Over-long input line | `readLine` | INVALID_INPUT | Rest of the line discarded; message |
+
+## 7.3 Recovery Strategy
+
+- Bad user input never changes data. The program reports the problem and returns to the menu.
+- A missing data file at startup is treated as a first run, and the program starts with empty data.
+- Corrupt lines in a file are skipped one at a time, so one bad line cannot block the rest of the file.
+- If saving fails on exit, the program reports the error and stays in the menu so the user can fix the problem and try again. It never silently loses data.
+- Known limitation: saving rewrites the whole file, so a failure in the middle of a save can leave a damaged file. Writing to a temporary file and then renaming it is listed as a future enhancement.
+
+---
+
+# 8. Remaining Parts (to be added)
+
+- Detailed module descriptions (dependencies between modules)
+- Application flowchart
+- Unit-test setup and cleanup details
+- Completed requirement traceability table (in the proposal)
