@@ -192,12 +192,170 @@ typedef enum
 
 ---
 
-# 2. Remaining Parts (to be added)
+# 2. Function Design (Tested Modules)
 
-2. Module design (detailed)
-3. Function design
-4. Input-validation plan
-5. File-handling plan
-6. Error-handling strategy
-7. Application flow
-8. Unit-test plan
+This part specifies the functions in the `statistics`, `alarm` and `validation` modules, which will be unit tested. Functions in the `tag`, `reading`, `file_handler` and `report` modules are specified in a later part.
+
+All functions return `Status_t` (or write their result through an output parameter) so that no return value is ignored. Pointer arguments are checked for NULL.
+
+## 2.1 Module: statistics (`statistics.c`, `statistics.h`)
+
+Standard deviation is the **population** standard deviation (divide by n).
+
+### Function: calculateMean
+
+| Item | Specification |
+|------|---------------|
+| Prototype | `Status_t calculateMean(const double *values, int count, double *result);` |
+| Purpose | Calculate the arithmetic mean of an array of values |
+| Parameters | `values` (input): array of readings. `count` (input): number of values. `result` (output): the mean |
+| Return values | `STATUS_SUCCESS`, `STATUS_INVALID_ARGUMENT` (NULL pointer), `STATUS_EMPTY` (count is 0 or negative) |
+| Preconditions | `values` holds at least `count` valid numbers |
+| Postconditions | `*result` holds the mean on success; unchanged on error |
+| Related requirement | FR-12 |
+| Planned tests | UT-01, UT-02 |
+
+### Function: calculateStdDev
+
+| Item | Specification |
+|------|---------------|
+| Prototype | `Status_t calculateStdDev(const double *values, int count, double *result);` |
+| Purpose | Calculate the population standard deviation of an array of values |
+| Parameters | `values` (input), `count` (input), `result` (output): the standard deviation |
+| Return values | `STATUS_SUCCESS`, `STATUS_INVALID_ARGUMENT` (NULL pointer), `STATUS_EMPTY` (count is 0 or negative) |
+| Preconditions | `values` holds at least `count` valid numbers |
+| Postconditions | `*result` is 0.0 when `count` is 1; unchanged on error |
+| Related requirement | FR-12 |
+| Planned tests | UT-03, UT-04 |
+
+### Functions: calculateMin and calculateMax
+
+| Item | Specification |
+|------|---------------|
+| Prototypes | `Status_t calculateMin(const double *values, int count, double *result);` and `Status_t calculateMax(const double *values, int count, double *result);` |
+| Purpose | Find the smallest and largest value |
+| Return values | Same as `calculateMean` |
+| Related requirement | FR-12 |
+
+## 2.2 Module: alarm (`alarm.c`, `alarm.h`)
+
+### Function: classifyReading
+
+| Item | Specification |
+|------|---------------|
+| Prototype | `Status_t classifyReading(double value, const Tag_t *tag, AlarmStatus_t *status);` |
+| Purpose | Decide the alarm state of a value using the tag's limits |
+| Parameters | `value` (input): measured value. `tag` (input): tag with the alarm limits. `status` (output): the alarm state |
+| Return values | `STATUS_SUCCESS`, `STATUS_INVALID_ARGUMENT` (NULL `tag` or `status`) |
+| Preconditions | The tag's limits satisfy low_low < low < high < high_high |
+| Postconditions | `*status` is set using the inclusive rule in section 1.3; unchanged on error |
+| Related requirement | FR-09 |
+| Planned tests | UT-05, UT-06, UT-07, UT-08 |
+
+### Function: calculateTimeInAlarm
+
+| Item | Specification |
+|------|---------------|
+| Prototype | `Status_t calculateTimeInAlarm(const Reading_t *readings, int count, const Tag_t *tag, int *seconds);` |
+| Purpose | Calculate the total time a tag spent in any alarm state |
+| Parameters | `readings` (input): reading array. `count` (input). `tag` (input). `seconds` (output): alarm duration |
+| Return values | `STATUS_SUCCESS`, `STATUS_INVALID_ARGUMENT` (NULL pointer or negative count) |
+| Preconditions | Readings are logged at the fixed interval `SAMPLE_INTERVAL_SEC` |
+| Postconditions | `*seconds` = (number of readings of this tag that are not ALARM_NORMAL) x `SAMPLE_INTERVAL_SEC`; readings of other tags are ignored; 0 when there are none |
+| Related requirement | FR-13 |
+| Planned tests | UT-18 |
+
+## 2.3 Module: validation (`validation.c`, `validation.h`)
+
+### Function: validateTagId
+
+| Item | Specification |
+|------|---------------|
+| Prototype | `Status_t validateTagId(const char *id);` |
+| Purpose | Check that a tag ID has a legal format (uniqueness is checked by the tag module) |
+| Parameters | `id` (input): the text to check |
+| Return values | `STATUS_SUCCESS`, `STATUS_INVALID_ARGUMENT` (NULL), `STATUS_INVALID_INPUT` (bad length or characters) |
+| Preconditions | `id` is a NUL-terminated string |
+| Postconditions | No data is modified |
+| Rule | 3 to 15 characters; first character is a letter; the rest are letters, digits or hyphen |
+| Related requirement | FR-02 |
+| Planned tests | UT-09, UT-10, UT-11, UT-12 |
+
+### Function: validateTimestamp
+
+| Item | Specification |
+|------|---------------|
+| Prototype | `Status_t validateTimestamp(const char *timestamp);` |
+| Purpose | Check format and calendar validity of `YYYY-MM-DD HH:MM:SS` |
+| Parameters | `timestamp` (input): the text to check |
+| Return values | `STATUS_SUCCESS`, `STATUS_INVALID_ARGUMENT` (NULL), `STATUS_INVALID_INPUT` |
+| Preconditions | `timestamp` is a NUL-terminated string |
+| Postconditions | No data is modified |
+| Rule | Exactly 19 characters; separators at the fixed positions; year 2000 to 2100; month 1 to 12; day valid for the month including leap years; hour 0 to 23; minute and second 0 to 59 |
+| Related requirements | FR-06, FR-08 |
+| Planned tests | UT-13, UT-14, UT-15, UT-16 |
+
+### Function: validateAlarmLimits
+
+| Item | Specification |
+|------|---------------|
+| Prototype | `Status_t validateAlarmLimits(double low_low, double low, double high, double high_high);` |
+| Purpose | Check that the four limits are in range and strictly increasing |
+| Return values | `STATUS_SUCCESS`, `STATUS_INVALID_INPUT` |
+| Rule | Each limit between `MIN_VALID_VALUE` and `MAX_VALID_VALUE`; low_low < low < high < high_high |
+| Related requirements | FR-01, FR-03 |
+| Planned tests | UT-17 |
+
+### Function: parseDouble
+
+| Item | Specification |
+|------|---------------|
+| Prototype | `Status_t parseDouble(const char *text, double *value);` |
+| Purpose | Convert text to a number and reject anything that is not a clean number in range |
+| Parameters | `text` (input): text typed by the user or read from a file. `value` (output): the number |
+| Return values | `STATUS_SUCCESS`, `STATUS_INVALID_ARGUMENT` (NULL), `STATUS_INVALID_INPUT` (empty, extra characters or out of range) |
+| Postconditions | `*value` is set only on success |
+| Rule | Whole text is one number; between `MIN_VALID_VALUE` and `MAX_VALID_VALUE` |
+| Related requirements | FR-06, FR-08 |
+| Planned tests | UT-19, UT-20 |
+
+---
+
+# 3. Planned Unit Tests (summary)
+
+| Test ID | Function | Category | Input or Condition | Expected Result |
+|---------|----------|----------|--------------------|-----------------|
+| UT-01 | calculateMean | Positive | values 1, 2, 3 | 2.0, STATUS_SUCCESS |
+| UT-02 | calculateMean | Negative | count 0 | STATUS_EMPTY |
+| UT-03 | calculateStdDev | Positive | values 2, 4, 4, 4, 5, 5, 7, 9 | 2.0, STATUS_SUCCESS |
+| UT-04 | calculateStdDev | Boundary | one value | 0.0, STATUS_SUCCESS |
+| UT-05 | classifyReading | Positive | value between low and high | ALARM_NORMAL |
+| UT-06 | classifyReading | Boundary | value equal to high | ALARM_HIGH |
+| UT-07 | classifyReading | Boundary | value equal to low_low | ALARM_LOW_LOW |
+| UT-08 | classifyReading | Negative | NULL tag | STATUS_INVALID_ARGUMENT |
+| UT-09 | validateTagId | Positive | "TT-101" | STATUS_SUCCESS |
+| UT-10 | validateTagId | Negative | "1TT" (starts with digit) | STATUS_INVALID_INPUT |
+| UT-11 | validateTagId | Boundary | 3-character ID "TT1" | STATUS_SUCCESS |
+| UT-12 | validateTagId | Boundary | 16-character ID | STATUS_INVALID_INPUT |
+| UT-13 | validateTimestamp | Positive | "2026-11-07 08:30:00" | STATUS_SUCCESS |
+| UT-14 | validateTimestamp | Negative | month 13 | STATUS_INVALID_INPUT |
+| UT-15 | validateTimestamp | Boundary | "2024-02-29 00:00:00" (leap year) | STATUS_SUCCESS |
+| UT-16 | validateTimestamp | Boundary | "2025-02-29 00:00:00" | STATUS_INVALID_INPUT |
+| UT-17 | validateAlarmLimits | Negative | high not above low | STATUS_INVALID_INPUT |
+| UT-18 | calculateTimeInAlarm | Positive | 5 readings, 2 in alarm | 120 seconds |
+| UT-19 | parseDouble | Negative | "abc" | STATUS_INVALID_INPUT |
+| UT-20 | parseDouble | Boundary | "100000.1" | STATUS_INVALID_INPUT |
+
+These cover 5 functions across 3 test files (`test_statistics.cpp`, `test_alarm.cpp`, `test_validation.cpp`), with 20 tests including positive, negative and boundary cases. The full test plan (section 14 of the template) will be completed later.
+
+---
+
+# 4. Remaining Parts (to be added)
+
+- Detailed module descriptions
+- Function design for `tag`, `reading`, `file_handler` and `report`
+- Input-validation plan
+- File-handling plan
+- Error-handling strategy
+- Application flow
+- Complete unit-test plan (setup and cleanup)
