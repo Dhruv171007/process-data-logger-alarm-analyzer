@@ -1,0 +1,4 @@
+TT-101,Boiler outlet temperature,degC,40.0,50.0,120.0,140.0
+PT-201,Steam header pressure,bar,2.0,4.0,16.0,18.0
+FT-301,Feed water flow,m3/h,5.0,10.0,80.0,95.0
+LT-401,Drum level,percent,10.0,20.0,80.0,90.0
