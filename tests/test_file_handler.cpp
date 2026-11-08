@@ -231,7 +231,7 @@ TEST_F(FileHandlerTest, ImportFromMissingFileReturnsOpenError)
 
     Status_t status = importReadingsCsv(kMissingPath, readings_, &reading_count_,
                                         tags_, tag_count_, &imported, &rejected);
-
+        
     EXPECT_EQ(STATUS_FILE_OPEN_ERROR, status);
     EXPECT_EQ(0, reading_count_);
 }
