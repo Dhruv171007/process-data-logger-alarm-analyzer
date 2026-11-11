@@ -1,6 +1,6 @@
 # Detailed Design: Process Data Logger and Alarm Analyzer
 
-This document extends `project_proposal.md`. Later parts (module design, function design, validation plan, file handling, error handling, application flow and unit-test plan) are added in separate commits.
+This document extends `project_proposal.md`. It describes the final design of the application and matches the implemented code, the unit tests and the Makefile in this repository.
 
 ---
 
@@ -344,38 +344,82 @@ Standard deviation is the **population** standard deviation (divide by n).
 
 ---
 
-# 3. Planned Unit Tests (summary)
+# 3. Unit Tests
 
-| Test ID | Function | Category | Input or Condition | Expected Result |
-|---------|----------|----------|--------------------|-----------------|
-| UT-01 | calculateMean | Positive | values 1, 2, 3 | 2.0, STATUS_SUCCESS |
-| UT-02 | calculateMean | Negative | count 0 | STATUS_EMPTY |
-| UT-03 | calculateStdDev | Positive | values 2, 4, 4, 4, 5, 5, 7, 9 | 2.0, STATUS_SUCCESS |
-| UT-04 | calculateStdDev | Boundary | one value | 0.0, STATUS_SUCCESS |
-| UT-05 | classifyReading | Positive | value between low and high | ALARM_NORMAL |
-| UT-06 | classifyReading | Boundary | value equal to high | ALARM_HIGH |
-| UT-07 | classifyReading | Boundary | value equal to low_low | ALARM_LOW_LOW |
-| UT-08 | classifyReading | Negative | NULL tag | STATUS_INVALID_ARGUMENT |
-| UT-09 | validateTagId | Positive | "TT-101" | STATUS_SUCCESS |
-| UT-10 | validateTagId | Negative | "1TT" (starts with digit) | STATUS_INVALID_INPUT |
-| UT-11 | validateTagId | Boundary | 3-character ID "TT1" | STATUS_SUCCESS |
-| UT-12 | validateTagId | Boundary | 16-character ID | STATUS_INVALID_INPUT |
-| UT-13 | validateTimestamp | Positive | "2026-11-07 08:30:00" | STATUS_SUCCESS |
-| UT-14 | validateTimestamp | Negative | month 13 | STATUS_INVALID_INPUT |
-| UT-15 | validateTimestamp | Boundary | "2024-02-29 00:00:00" (leap year) | STATUS_SUCCESS |
-| UT-16 | validateTimestamp | Boundary | "2025-02-29 00:00:00" | STATUS_INVALID_INPUT |
-| UT-17 | validateAlarmLimits | Negative | high not above low | STATUS_INVALID_INPUT |
-| UT-18 | calculateTimeInAlarm | Positive | 5 readings, 2 in alarm | 120 seconds |
-| UT-19 | parseDouble | Negative | "abc" | STATUS_INVALID_INPUT |
-| UT-20 | parseDouble | Boundary | "100000.1" | STATUS_INVALID_INPUT |
+The project has **62 unit tests** in 7 test files (`test_statistics.cpp`, `test_alarm.cpp`, `test_validation.cpp`, `test_tag.cpp`, `test_reading.cpp`, `test_file_handler.cpp` and `test_report.cpp`). They cover 28 functions and include positive, negative and boundary cases. UT-01 to UT-20 were planned in the first design; UT-21 to UT-62 were added during implementation to cover record handling, file handling and reports. The test ID is written in a comment above every test.
 
-These cover 5 functions across 3 test files (`test_statistics.cpp`, `test_alarm.cpp`, `test_validation.cpp`), with 20 tests including positive, negative and boundary cases. The full test plan (section 14 of the template) will be completed later.
+| Test ID | Function | Category | Input or Condition | Expected Result | Requirement ID |
+|---------|----------|----------|--------------------|-----------------|----------------|
+| UT-01 | calculateMean | Positive | values 1, 2, 3 | 2.0, STATUS_SUCCESS | FR-12 |
+| UT-02 | calculateMean | Negative | count 0 | STATUS_EMPTY, result unchanged | FR-12 |
+| UT-03 | calculateStdDev | Positive | values 2, 4, 4, 4, 5, 5, 7, 9 | 2.0, STATUS_SUCCESS | FR-12 |
+| UT-04 | calculateStdDev | Boundary | one value | 0.0, STATUS_SUCCESS | FR-12 |
+| UT-05 | classifyReading | Positive | value between low and high | ALARM_NORMAL | FR-09 |
+| UT-06 | classifyReading | Boundary | value equal to high | ALARM_HIGH | FR-09 |
+| UT-07 | classifyReading | Boundary | value equal to low_low | ALARM_LOW_LOW | FR-09 |
+| UT-08 | classifyReading | Negative | NULL tag | STATUS_INVALID_ARGUMENT, status unchanged | FR-09, FR-16 |
+| UT-09 | validateTagId | Positive | "TT-101" | STATUS_SUCCESS | FR-02 |
+| UT-10 | validateTagId | Negative | "1TT" (starts with a digit) | STATUS_INVALID_INPUT | FR-02 |
+| UT-11 | validateTagId | Boundary | 3-character ID "TT1" | STATUS_SUCCESS | FR-02 |
+| UT-12 | validateTagId | Boundary | 16-character ID | STATUS_INVALID_INPUT | FR-02 |
+| UT-13 | validateTimestamp | Positive | "2026-11-07 08:30:00" | STATUS_SUCCESS | FR-06 |
+| UT-14 | validateTimestamp | Negative | month 13 | STATUS_INVALID_INPUT | FR-08 |
+| UT-15 | validateTimestamp | Boundary | "2024-02-29 00:00:00" (leap year) | STATUS_SUCCESS | FR-08 |
+| UT-16 | validateTimestamp | Boundary | "2025-02-29 00:00:00" | STATUS_INVALID_INPUT | FR-08 |
+| UT-17 | validateAlarmLimits | Negative | high not above low | STATUS_INVALID_INPUT | FR-01, FR-03 |
+| UT-18 | calculateTimeInAlarm | Positive | 5 readings, 2 in alarm | 120 seconds | FR-13 |
+| UT-19 | parseDouble | Negative | "abc" | STATUS_INVALID_INPUT, value unchanged | FR-08 |
+| UT-20 | parseDouble | Boundary | "100000.1" | STATUS_INVALID_INPUT | FR-08 |
+| UT-21 | addTag | Positive | valid tag | STATUS_SUCCESS, count 1, ID stored | FR-01 |
+| UT-22 | addTag | Negative | same ID added twice | STATUS_DUPLICATE, count stays 1 | FR-02 |
+| UT-23 | addTag | Boundary | array already holds MAX_TAGS tags | STATUS_CAPACITY_FULL | FR-01 |
+| UT-24 | addTag | Negative | limits not in increasing order | STATUS_INVALID_INPUT, count 0 | FR-01 |
+| UT-25 | findTagById | Negative | tag does not exist | STATUS_NOT_FOUND, index unchanged | FR-05 |
+| UT-26 | editTag | Positive | new description and high limit | Values changed, ID unchanged | FR-03 |
+| UT-27 | deleteTag | Positive | delete the middle of three tags | Count 2, later tag shifted up | FR-04 |
+| UT-28 | addReading | Positive | valid tag, timestamp and value | STATUS_SUCCESS, count 1 | FR-06 |
+| UT-29 | addReading | Negative | unknown tag | STATUS_NOT_FOUND, count 0 | FR-06, FR-08 |
+| UT-30 | addReading | Negative | timestamp with month 13 | STATUS_INVALID_INPUT, count 0 | FR-08 |
+| UT-31 | addReading | Boundary | array already holds MAX_READINGS | STATUS_CAPACITY_FULL | FR-06 |
+| UT-32 | deleteReadingsByTag | Positive | 2 readings of TT-101, 1 of TT-102; delete TT-101 | removed 2, TT-102 reading kept | FR-04 |
+| UT-33 | filterReadings | Positive | tag TT-101 and status HIGH | 1 reading (85.0) | FR-10 |
+| UT-34 | filterReadings | Boundary | range 09:00:00 to 10:00:00 | Both end times included, 2 readings | FR-10 |
+| UT-35 | filterReadings | Negative | start time after end time | STATUS_INVALID_INPUT | FR-10 |
+| UT-36 | sortReadings | Positive | by value, ascending | 30, 50, 70 | FR-11 |
+| UT-37 | sortReadings | Positive | by timestamp, descending | Latest reading first | FR-11 |
+| UT-38 | sortReadings | Negative | invalid sort field | STATUS_INVALID_ARGUMENT | FR-11 |
+| UT-39 | getValuesForTag | Positive | 2 values of TT-101 and 1 of TT-102 | 11.0 and 22.0 in order | FR-12 |
+| UT-40 | getValuesForTag | Negative | tag without readings | STATUS_EMPTY, count unchanged | FR-12 |
+| UT-41 | saveTags / loadTags | Positive | save 2 tags and load them again | Same 2 tags, 0 rejected | FR-15 |
+| UT-42 | loadTags | Negative | file does not exist | STATUS_FILE_OPEN_ERROR | FR-15, FR-16 |
+| UT-43 | loadTags | Negative | 6-field line, reversed limits, blank line, 2 valid lines | 2 tags loaded, 2 rejected | FR-15, FR-16 |
+| UT-44 | loadTags | Negative | every line invalid | STATUS_INVALID_FILE_DATA | FR-16 |
+| UT-45 | loadTags | Boundary | line of 300 characters, then a valid line | 1 rejected, 1 loaded | FR-16 |
+| UT-46 | saveReadings / importReadingsCsv | Positive | save 2 readings and import them again | Same 2 readings, 0 rejected | FR-15 |
+| UT-47 | importReadingsCsv | Negative | header, 2 valid lines, 3 invalid lines | 2 imported, 3 rejected | FR-07, FR-08 |
+| UT-48 | importReadingsCsv | Boundary | only one free slot, 3 valid lines | STATUS_CAPACITY_FULL, 1 imported | FR-07 |
+| UT-49 | importReadingsCsv | Negative | file does not exist | STATUS_FILE_OPEN_ERROR | FR-07, FR-16 |
+| UT-50 | saveTags | Negative | folder does not exist | STATUS_FILE_OPEN_ERROR | FR-15, FR-16 |
+| UT-51 | statusToMessage | Negative | unknown status value | "Unknown error." | FR-16 |
+| UT-52 | alarmStatusToText | Positive | ALARM_HIGH_HIGH and ALARM_NORMAL | "HIGH-HIGH" and "NORMAL" | FR-09 |
+| UT-53 | printTags | Negative | no tags | STATUS_EMPTY | FR-05 |
+| UT-54 | printTags | Positive | 2 tags | Output lists the IDs and descriptions | FR-05 |
+| UT-55 | printReadings | Positive | one reading of 85.0 | Output shows 85.00 and HIGH | FR-10 |
+| UT-56 | printReadings | Negative | no readings | STATUS_EMPTY | FR-10 |
+| UT-57 | printTagStatistics | Positive | values 10, 20, 30 | Mean 20.00, std dev 8.16 | FR-12 |
+| UT-58 | printTagStatistics | Negative | tag has no readings | STATUS_EMPTY | FR-12 |
+| UT-59 | printAlarmSummary | Positive | 5 readings, 2 in alarm; second tag has none | "Time in alarm : 120 s", "High: 1", "No readings" | FR-09, FR-13 |
+| UT-60 | saveShiftReport | Positive | 3 readings of one tag | File shows period, mean and a "No readings" note | FR-14 |
+| UT-61 | saveShiftReport | Negative | folder does not exist | STATUS_FILE_OPEN_ERROR | FR-14, FR-16 |
+| UT-62 | saveShiftReport | Negative | no tags | STATUS_EMPTY | FR-14 |
 
 ---
 
 # 4. Function Design (Other Modules)
 
 These functions follow the same rules as section 2: every function returns `Status_t`, results come back through output parameters, and pointer arguments are checked for NULL. In every row, "Postcondition: unchanged on error" applies to all output parameters and arrays.
+
+**Common preconditions:** pointer arguments are not NULL, counts are within `0` to the array capacity, and arrays hold at least `count` valid items. **Common postconditions:** output parameters are written only when the function returns `STATUS_SUCCESS` (the load and import functions also report their counts when some lines were rejected).
 
 ## 4.1 Module: tag (`tag.c`, `tag.h`)
 
@@ -419,6 +463,7 @@ The readings file and a user's CSV import file use the same format, so one funct
 | `Status_t printAlarmSummary(const Tag_t *tags, int tag_count, const Reading_t *readings, int count);` | Prints, for every tag, the number of readings in each alarm state and the time in alarm. | SUCCESS, INVALID_ARGUMENT, EMPTY | FR-09, FR-13 |
 | `Status_t saveShiftReport(const char *path, const Tag_t *tags, int tag_count, const Reading_t *readings, int count);` | Writes the full shift report: for each tag, the reading count, statistics, alarm counts and time in alarm. Tags with no readings show "No readings". | SUCCESS, INVALID_ARGUMENT, EMPTY, FILE_OPEN_ERROR, FILE_WRITE_ERROR | FR-14 |
 | `const char *statusToMessage(Status_t status);` | Returns a fixed user-friendly message for a status code, never NULL; unknown values give "Unknown error". | Not applicable (returns text) | FR-16 |
+| `const char *alarmStatusToText(AlarmStatus_t status);` | Returns the text for an alarm state (`NORMAL`, `LOW`, `LOW-LOW`, `HIGH`, `HIGH-HIGH`); unknown values give `UNKNOWN`. Never returns NULL. | Not applicable (returns text) | FR-09 |
 
 `printAlarmSummary` and `saveShiftReport` share one internal routine for the per-tag summary, so the logic is written once.
 
@@ -543,7 +588,7 @@ All functions use the `Status_t` enumeration defined in section 1.3. Every retur
 - Bad user input never changes data. The program reports the problem and returns to the menu.
 - A missing data file at startup is treated as a first run, and the program starts with empty data.
 - Corrupt lines in a file are skipped one at a time, so one bad line cannot block the rest of the file.
-- If saving fails on exit, the program reports the error and stays in the menu so the user can fix the problem and try again. It never silently loses data.
+- If saving fails on exit, the program shows the error and asks "Exit without saving? (y/n)". Answering no returns to the menu so the user can fix the problem and try again, and the data is never lost silently. If the input has been closed (end of file) nobody can answer, so the program exits.
 - Known limitation: saving rewrites the whole file, so a failure in the middle of a save can leave a damaged file. Writing to a temporary file and then renaming it is listed as a future enhancement.
 
 ---
@@ -558,14 +603,14 @@ All functions use the `Status_t` enumeration defined in section 1.3. Every retur
 
 | Module | Depends On | Public Functions | Data Used |
 |--------|-----------|------------------|-----------|
-| main | all modules | `main` only (menu and control flow) | Owns `tags`, `readings` and their counts |
-| validation | common | `validateTagId`, `validateTimestamp`, `validateAlarmLimits`, `parseDouble`, `readLine`, `validateMenuChoice`, `validateDescription`, `validateUnit` | Input text only |
+| main | all modules | `main` only (menu and control flow) | Owns `tags`, `readings`, `view_buffer` and their counts |
+| validation | common | `validateTagId`, `validateTimestamp`, `validateAlarmLimits`, `validateDescription`, `validateUnit`, `parseDouble`, `validateMenuChoice`, `readLine` | Input text only |
 | statistics | common | `calculateMean`, `calculateStdDev`, `calculateMin`, `calculateMax` | Arrays of doubles |
 | alarm | common | `classifyReading`, `calculateTimeInAlarm` | `Tag_t`, `Reading_t` |
 | tag | validation, common | `addTag`, `findTagById`, `editTag`, `deleteTag` | `Tag_t` array |
-| reading | validation, tag, alarm, common | `addReading`, `deleteReadingsByTag`, `filterReadings`, `sortReadings`, `getValuesForTag` | `Reading_t` array |
-| file_handler | validation, tag, common | `saveTags`, `loadTags`, `saveReadings`, `importReadingsCsv` | Data files |
-| report | statistics, alarm, reading, common | `printTags`, `printReadings`, `printTagStatistics`, `printAlarmSummary`, `saveShiftReport`, `statusToMessage` | Read-only access to arrays |
+| reading | validation, tag, alarm, common | `addReading`, `deleteReadingsByTag`, `filterReadings`, `sortReadings`, `getValuesForTag` | `Reading_t` array, `ReadingFilter_t` |
+| file_handler | validation, tag, reading, common | `saveTags`, `loadTags`, `saveReadings`, `importReadingsCsv` | Data files |
+| report | statistics, alarm, reading, tag, common | `printTags`, `printReadings`, `printTagStatistics`, `printAlarmSummary`, `saveShiftReport`, `statusToMessage`, `alarmStatusToText` | Read-only access to arrays |
 
 ## 8.3 Dependency Rules
 
@@ -573,6 +618,89 @@ All functions use the `Status_t` enumeration defined in section 1.3. Every retur
 2. `validation`, `statistics` and `alarm` do not depend on other feature modules, so they can be unit tested on their own.
 3. No global variables: `main` owns the arrays and passes them to functions by pointer.
 4. Each `.c` file includes its own header first, then other headers, and only the headers it needs.
+
+
+## 8.4 Detailed Module Descriptions
+
+### Module: main
+
+- **Source and header:** `src/main.c` (no header)
+- **Purpose:** Entry point. Loads the saved data, shows the menus, calls the other modules and saves the data on exit.
+- **Responsibilities:** Create the data arrays, load tags and readings, display the main and tag menus, validate menu choices, ask for input, call module functions, show success and error messages, save on exit.
+- **Public functions:** `main`
+- **Data owned:** `tags[MAX_TAGS]`, `readings[MAX_READINGS]`, `view_buffer[MAX_READINGS]` and their counts, passed to other modules by pointer.
+- **Dependencies:** all modules
+- **Possible errors:** Shows the message for any `Status_t` through `statusToMessage`.
+
+### Module: validation
+
+- **Source and header:** `src/validation.c`, `include/validation.h`
+- **Purpose:** One place for all input rules, used for typed input and for file data.
+- **Responsibilities:** Validate tag IDs, timestamps, alarm limits, descriptions and units; convert text to numbers safely; check menu choices; read lines without overflow.
+- **Public functions:** `validateTagId`, `validateTimestamp`, `validateAlarmLimits`, `validateDescription`, `validateUnit`, `parseDouble`, `validateMenuChoice`, `readLine`
+- **Data used:** Text and numbers passed in; no stored data.
+- **Dependencies:** common
+- **Possible errors:** `STATUS_INVALID_ARGUMENT`, `STATUS_INVALID_INPUT`
+
+### Module: statistics
+
+- **Source and header:** `src/statistics.c`, `include/statistics.h`
+- **Purpose:** Numeric summary of an array of values.
+- **Responsibilities:** Minimum, maximum, mean and population standard deviation.
+- **Public functions:** `calculateMean`, `calculateStdDev`, `calculateMin`, `calculateMax`
+- **Data used:** Arrays of doubles.
+- **Dependencies:** common
+- **Possible errors:** `STATUS_INVALID_ARGUMENT`, `STATUS_EMPTY`
+
+### Module: alarm
+
+- **Source and header:** `src/alarm.c`, `include/alarm.h`
+- **Purpose:** Decide whether a reading is in alarm.
+- **Responsibilities:** Classify a value against the four limits of a tag (inclusive limits); calculate the time a tag spent in alarm.
+- **Public functions:** `classifyReading`, `calculateTimeInAlarm`
+- **Data used:** `Tag_t` limits and `Reading_t` values.
+- **Dependencies:** common
+- **Possible errors:** `STATUS_INVALID_ARGUMENT`
+
+### Module: tag
+
+- **Source and header:** `src/tag.c`, `include/tag.h`
+- **Purpose:** Manage the measurement tags.
+- **Responsibilities:** Add (with validation, duplicate and capacity checks), find, edit and delete tags.
+- **Public functions:** `addTag`, `findTagById`, `editTag`, `deleteTag`
+- **Data used:** The tag array and its count (owned by `main`).
+- **Dependencies:** validation, common
+- **Possible errors:** `STATUS_INVALID_ARGUMENT`, `STATUS_INVALID_INPUT`, `STATUS_DUPLICATE`, `STATUS_NOT_FOUND`, `STATUS_CAPACITY_FULL`
+
+### Module: reading
+
+- **Source and header:** `src/reading.c`, `include/reading.h`
+- **Purpose:** Manage the process readings.
+- **Responsibilities:** Add readings (tag must exist), delete the readings of a tag, filter by tag, alarm status and time range, sort, and extract the values of one tag.
+- **Public functions:** `addReading`, `deleteReadingsByTag`, `filterReadings`, `sortReadings`, `getValuesForTag`
+- **Data used:** The reading array and its count (owned by `main`), `ReadingFilter_t`.
+- **Dependencies:** validation, tag, alarm, common
+- **Possible errors:** `STATUS_INVALID_ARGUMENT`, `STATUS_INVALID_INPUT`, `STATUS_NOT_FOUND`, `STATUS_CAPACITY_FULL`, `STATUS_EMPTY`
+
+### Module: file_handler
+
+- **Source and header:** `src/file_handler.c`, `include/file_handler.h`
+- **Purpose:** Store and load the data.
+- **Responsibilities:** Save and load tags and readings, import CSV files, skip and count invalid lines, check every file operation.
+- **Public functions:** `saveTags`, `loadTags`, `saveReadings`, `importReadingsCsv`
+- **Data used:** `data/tags.txt`, `data/readings.txt` and user CSV files.
+- **Dependencies:** validation, tag, reading, common
+- **Possible errors:** `STATUS_INVALID_ARGUMENT`, `STATUS_FILE_OPEN_ERROR`, `STATUS_FILE_READ_ERROR`, `STATUS_FILE_WRITE_ERROR`, `STATUS_INVALID_FILE_DATA`, `STATUS_CAPACITY_FULL`
+
+### Module: report
+
+- **Source and header:** `src/report.c`, `include/report.h`
+- **Purpose:** Present results to the user.
+- **Responsibilities:** Print tag and reading tables, per-tag statistics and the alarm summary; write the shift report file; provide the texts for status codes and alarm states.
+- **Public functions:** `printTags`, `printReadings`, `printTagStatistics`, `printAlarmSummary`, `saveShiftReport`, `statusToMessage`, `alarmStatusToText`
+- **Data used:** Read-only access to tags and readings.
+- **Dependencies:** statistics, alarm, reading, tag, common
+- **Possible errors:** `STATUS_INVALID_ARGUMENT`, `STATUS_EMPTY`, `STATUS_FILE_OPEN_ERROR`, `STATUS_FILE_WRITE_ERROR`
 
 ---
 
@@ -612,9 +740,11 @@ flowchart TD
     K --> E
     I -- Yes --> L[Save tags and readings]
     L --> M{Save succeeded?}
-    M -- No --> N[Show error message]
-    N --> E
     M -- Yes --> O([Exit])
+    M -- No --> N[Show error message]
+    N --> P{Exit without saving?}
+    P -- Yes --> O
+    P -- No --> E
 ```
 
 ## 9.3 Operation Flow: Add Reading
@@ -676,17 +806,21 @@ flowchart TD
 | `tests/test_statistics.cpp` | statistics | UT-01 to UT-04 |
 | `tests/test_alarm.cpp` | alarm | UT-05 to UT-08, UT-18 |
 | `tests/test_validation.cpp` | validation | UT-09 to UT-17, UT-19, UT-20 |
+| `tests/test_tag.cpp` | tag | UT-21 to UT-27 |
+| `tests/test_reading.cpp` | reading | UT-28 to UT-40 |
+| `tests/test_file_handler.cpp` | file_handler | UT-41 to UT-50 |
+| `tests/test_report.cpp` | report | UT-51 to UT-62 |
 
-Tests are written in C++ because Google Test needs it. Each C header includes an `extern "C"` guard so the C++ test files can link to the C code.
+Tests are written in C++ because Google Test needs it. Every C header has an `extern "C"` guard so the C++ test files can link to the C code.
 
 ## 10.2 Test Data and Setup
 
-- All tested functions are pure (no file or screen access), so no temporary files are needed and nothing has to be cleaned up.
-- Each test builds its own input (a local array, a local `Tag_t` or a string literal). No data is shared between tests, so tests are independent and run in any order.
-- Test names follow the pattern `TEST(SuiteName, BehaviourDescription)`, for example `TEST(StatisticsTest, MeanOfThreeValuesIsTwo)`, with the UT ID in a comment above it.
-- Decimal results are compared with `EXPECT_NEAR(actual, expected, 1e-9)`. Boundary tests use values that a `double` stores exactly (for example 80.0 and 120.0), so comparisons are not affected by rounding.
+- Most tests work only on data in memory. Each test builds its own input (a local array, a string literal or a `Tag_t` created in the fixture's `SetUp`), so no data is shared between tests and they run in any order.
+- The `file_handler` and `report` tests write temporary files into the `build/` folder (`ut_tags.tmp`, `ut_readings.tmp`, `ut_report.tmp`). The files are removed in `SetUp` and again in `TearDown`, so nothing is left behind and a failed earlier run cannot affect the next one. The tests must be started from the project root, which `make test` does.
+- The `report` tests that check screen output use Google Test's `CaptureStdout()`.
+- Decimal results are compared with `EXPECT_NEAR(actual, expected, 1e-9)`. Boundary tests use values that a `double` stores exactly (for example 80.0 and 120.0).
 - Timestamp tests use fixed text and never read the system clock, so they give the same result on any day.
-- If file tests are added later, they will write to a temporary file in `tests/` and delete it in `TearDown`.
+- Test names follow the pattern `TEST(SuiteName, BehaviourDescription)`, for example `TEST(StatisticsTest, MeanOfOneTwoThreeIsTwo)`.
 
 ## 10.3 Test Command
 
@@ -694,10 +828,176 @@ Tests are written in C++ because Google Test needs it. Each C header includes an
 make test
 ```
 
-This compiles the C sources and the test files, links them with Google Test, runs the test executable and reports passed and failed tests.
+This compiles the C sources and the test files, links them with Google Test, runs the test executable and reports the passed and failed tests.
 
 ---
 
-# 11. Design Status
+# 11. Coding Standards Plan
 
-The detailed design is complete: data design, function design for every module, validation plan, file-handling plan, error-handling strategy, module dependencies, application flow and unit-test plan. Coding starts next, one module per commit.
+## 11.1 Naming Conventions
+
+| Item | Convention | Example |
+|------|------------|---------|
+| Source files | lowercase with underscores | `file_handler.c` |
+| Header files | lowercase with underscores, same name as the source file | `file_handler.h` |
+| Functions | camelCase, starting with a verb | `calculateMean`, `addReading` |
+| Local variables and structure members | snake_case | `tag_count`, `high_high` |
+| Structures | PascalCase with `_t` suffix | `Tag_t`, `Reading_t` |
+| Enumerations | PascalCase with `_t` suffix | `Status_t`, `AlarmStatus_t` |
+| Constants and enumeration values | UPPER_SNAKE_CASE | `MAX_READINGS`, `STATUS_NOT_FOUND` |
+
+## 11.2 Formatting Rules
+
+- Indentation: 4 spaces, no tabs in C and C++ code (tabs are used only where the Makefile requires them)
+- Brace style: each opening brace on its own line
+- Maximum line length: about 100 characters
+- Compiler warning flags: `-Wall -Wextra -Wpedantic`
+- Comment style: `/* ... */` comments that explain purpose, assumptions and non-obvious logic; each test has a comment with its test ID and category
+
+## 11.3 Function Rules
+
+- One clear responsibility per function
+- Every function that can fail returns a `Status_t`; results are returned through output parameters that are written only on success
+- Pointer arguments are checked for NULL and counts are checked against their limits
+- No global variables; helper functions that are private to a module are `static`
+- Text is validated before it is copied into a fixed-size buffer
+
+## 11.4 Prohibited Practices
+
+- `gets` and `scanf` (all input uses `fgets` through `readLine`)
+- Ignoring return values or unchecked file operations
+- Magic numbers for sizes, limits and file paths (named constants are used)
+- Absolute or machine-specific file paths
+- Function implementations in header files
+- Commented-out code and unused variables or functions
+
+---
+
+# 12. Makefile Design
+
+## 12.1 Required Targets
+
+| Target | Purpose | Expected Output |
+|--------|---------|-----------------|
+| `all` | Build the application | Compiles each `src/*.c` file to `build/*.o` and links `build/analyzer.exe` with no warnings |
+| `run` | Build if needed and run the application | The application starts and shows the main menu |
+| `test` | Build and execute the unit tests | Google Test output ending with `[  PASSED  ] 62 tests.` |
+| `clean` | Remove generated files | The `build/` folder is deleted |
+
+## 12.2 Build Configuration
+
+| Item | Value |
+|------|-------|
+| C compiler | `gcc` |
+| C++ compiler | `g++` |
+| C compiler flags | `-Wall -Wextra -Wpedantic -std=c11 -Iinclude -MMD -MP` |
+| C++ compiler flags | `-Wall -Wextra -Wpedantic -std=c++17 -Iinclude` |
+| Include paths | `include/` |
+| gTest libraries | `-lgtest -lgtest_main -pthread -lm` |
+| Application executable | `build/analyzer.exe` |
+| Test executable | `build/run_tests.exe` |
+
+Source files are compiled separately with one pattern rule, and the sources and tests are found with `wildcard`, so a new module is picked up automatically. The `-MMD -MP` flags create dependency files that the Makefile includes, so a changed header rebuilds only the files that use it. `main.o` is left out when linking the tests.
+
+---
+
+# 13. Repository Structure and Git
+
+## 13.1 Final Repository Structure
+
+```
+process-data-logger-alarm-analyzer/
+|-- src/        main.c, alarm.c, file_handler.c, reading.c, report.c,
+|               statistics.c, tag.c, validation.c
+|-- include/    common.h, alarm.h, file_handler.h, reading.h, report.h,
+|               statistics.h, tag.h, validation.h
+|-- tests/      test_alarm.cpp, test_file_handler.cpp, test_reading.cpp,
+|               test_report.cpp, test_statistics.cpp, test_tag.cpp,
+|               test_validation.cpp
+|-- data/       sample_tags.txt, sample_readings.csv, sample_readings_invalid.csv
+|-- docs/       project_proposal.md, detailed_design.md, architecture.png
+|-- Makefile
+|-- README.md
+|-- .gitignore
+`-- LICENSE
+```
+
+## 13.2 Files Ignored by Git
+
+```
+build/
+*.o
+*.exe
+*.d
+.vscode/
+data/tags.txt
+data/readings.txt
+data/shift_report.txt
+```
+
+The first entries come from the C `.gitignore` template. The last four are editor settings and the data files the application creates while it runs. The sample files in `data/` are tracked.
+
+---
+
+# 14. Implementation Status
+
+| Work Item | Status | Evidence |
+|-----------|--------|----------|
+| Proposal | Complete | `docs/project_proposal.md` |
+| Detailed design | Complete | `docs/detailed_design.md`, `docs/architecture.png` |
+| Shared definitions | Complete | `include/common.h` |
+| Validation, statistics and alarm modules | Complete | `src/validation.c`, `src/statistics.c`, `src/alarm.c` |
+| Tag and reading modules | Complete | `src/tag.c`, `src/reading.c` |
+| File handling | Complete | `src/file_handler.c`, `data/sample_*` |
+| Report module and `main.c` | Complete | `src/report.c`, `src/main.c` |
+| Unit tests | Complete | `tests/*.cpp` (62 tests, all passing) |
+| Makefile | Complete | `Makefile` (`all`, `run`, `test`, `clean`) |
+| README | Complete | `README.md` |
+| Repository verification | Pending | Clone into a new folder and run `make all`, `make test`, `make run` |
+
+---
+
+# 15. Test Execution Results
+
+## 15.1 Build Result
+
+Command: `make all`
+
+Result: Pass
+
+Warnings or errors: None (the code is compiled with `-Wall -Wextra -Wpedantic`).
+
+## 15.2 Unit-Test Result
+
+Command: `make test`
+
+| Total tests | Passed | Failed |
+|-------------|--------|--------|
+| 62 | 62 | 0 |
+
+Test-output evidence (last lines of the output):
+
+```
+[==========] 62 tests from 7 test suites ran.
+[  PASSED  ] 62 tests.
+```
+
+## 15.3 Application Test Results
+
+| Scenario | Input or Condition | Expected Result | Actual Result | Status |
+|----------|--------------------|-----------------|---------------|--------|
+| Normal use | Import `data/sample_readings.csv` (menu 3) | 50 readings imported | `Imported 50 reading(s), rejected 0 line(s).` | Pass |
+| Normal use | Add reading 150 for TT-101 (high-high limit is 140) | Alarm status HIGH-HIGH | `Reading added. Alarm status: HIGH-HIGH` | Pass |
+| Invalid input | Value `abc` when adding a reading | Error message, nothing stored | `Invalid input. Please check the value and try again.` | Pass |
+| Invalid input | Menu choice `99` and `abc` | Error message, menu shown again | `Invalid choice. Enter a number from 0 to 8.` | Pass |
+| Invalid file data | Import `data/sample_readings_invalid.csv` | 2 valid lines imported, 4 bad lines rejected | `Imported 2 reading(s), rejected 4 line(s).` | Pass |
+| Boundary value | TT-101 readings 119.99, 120, 140, 50 and 40 (limits 40 / 50 / 120 / 140) | NORMAL, HIGH, HIGH-HIGH, LOW, LOW-LOW | `NORMAL`, `HIGH`, `HIGH-HIGH`, `LOW`, `LOW-LOW` | Pass |
+| Missing record | Statistics for tag `NOPE` | Error message | `Tag or record not found.` | Pass |
+| File failure | Run from a folder without `data/`, then choose 0 | Error shown, asked whether to exit without saving | `The file could not be opened.` and `Saving failed. Exit without saving? (y/n):` | Pass |
+| Saved data reloaded | Save and exit, then start again | Data loaded again | `Loaded 4 tag(s) and 53 reading(s).` | Pass |
+
+---
+
+# 16. Design Status
+
+The design documents match the implemented code, the unit tests and the Makefile. The remaining items are the independent verification of the repository (see section 14) and the reflection.

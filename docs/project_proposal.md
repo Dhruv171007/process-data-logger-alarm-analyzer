@@ -110,24 +110,24 @@ The proposed solution is a modular, menu-driven command-line application written
 
 ## 4.1 Functional Requirements
 
-| ID    | Functional Requirement                                                                       | Priority | Verification Method |
-|-------|----------------------------------------------------------------------------------------------|----------|---------------------|
-| FR-01 | The system shall add a new tag with ID, description, unit and four alarm limits.             | High     | Demonstration / Test |
-| FR-02 | The system shall validate tag IDs for format and reject duplicates.                          | High     | Test                |
-| FR-03 | The system shall edit the description, unit and alarm limits of an existing tag.             | Medium   | Demonstration       |
-| FR-04 | The system shall delete a tag together with its readings.                                    | Medium   | Demonstration       |
-| FR-05 | The system shall search for a tag by ID and list all tags.                                   | High     | Demonstration       |
-| FR-06 | The system shall add a reading manually after validating tag, timestamp and value.           | High     | Demonstration / Test |
-| FR-07 | The system shall import readings from a CSV file and report how many lines were rejected.    | High     | Demonstration       |
-| FR-08 | The system shall reject readings with an unknown tag, invalid timestamp or invalid value.    | High     | Test                |
-| FR-09 | The system shall classify each reading as Normal, Low, Low-Low, High or High-High.           | High     | Test                |
-| FR-10 | The system shall filter readings by tag, alarm status and time range.                        | Medium   | Demonstration       |
-| FR-11 | The system shall sort readings by value or by timestamp.                                     | Medium   | Demonstration       |
-| FR-12 | The system shall calculate minimum, maximum, mean and standard deviation for a tag.          | High     | Test                |
-| FR-13 | The system shall calculate the time a tag spent in alarm.                                    | Medium   | Test                |
-| FR-14 | The system shall generate a shift report and save it to a text file.                         | High     | Demonstration       |
-| FR-15 | The system shall save tags and readings to files and load them at startup.                   | High     | Demonstration       |
-| FR-16 | The system shall handle invalid menu choices and missing or corrupt files without crashing.  | High     | Negative testing    |
+| ID | Functional Requirement | Priority | Verification Method |
+|----|------------------------|----------|---------------------|
+| FR-01 | The system shall add a new tag with ID, description, unit and four alarm limits. | High | Demonstration / Test |
+| FR-02 | The system shall validate tag IDs for format and reject duplicates. | High | Test |
+| FR-03 | The system shall edit the description, unit and alarm limits of an existing tag. | Medium | Demonstration / Test |
+| FR-04 | The system shall delete a tag together with its readings. | Medium | Demonstration / Test |
+| FR-05 | The system shall search for a tag by ID and list all tags. | High | Demonstration / Test |
+| FR-06 | The system shall add a reading manually after validating tag, timestamp and value. | High | Demonstration / Test |
+| FR-07 | The system shall import readings from a CSV file and report how many lines were rejected. | High | Demonstration / Test |
+| FR-08 | The system shall reject readings with an unknown tag, invalid timestamp or invalid value. | High | Test |
+| FR-09 | The system shall classify each reading as Normal, Low, Low-Low, High or High-High. | High | Test |
+| FR-10 | The system shall filter readings by tag, alarm status and time range. | Medium | Demonstration / Test |
+| FR-11 | The system shall sort readings by value or by timestamp. | Medium | Demonstration / Test |
+| FR-12 | The system shall calculate minimum, maximum, mean and standard deviation for a tag. | High | Test |
+| FR-13 | The system shall calculate the time a tag spent in alarm. | Medium | Test |
+| FR-14 | The system shall generate a shift report and save it to a text file. | High | Demonstration / Test |
+| FR-15 | The system shall save tags and readings to files and load them at startup. | High | Demonstration / Test |
+| FR-16 | The system shall handle invalid menu choices and missing or corrupt files without crashing. | High | Negative testing / Test |
 
 ## 4.2 Non-Functional Requirements
 
@@ -144,26 +144,26 @@ The proposed solution is a modular, menu-driven command-line application written
 
 ## 4.3 Requirement Traceability
 
-Unit tests (UT-xx) are defined in `detailed_design.md`. Requirements without a unit test are verified by demonstration or negative testing.
+Unit tests (UT-xx) are defined in `detailed_design.md`. The functions listed are implemented in the module shown.
 
-| Requirement ID | Module                         | Function or Feature                                                                                   | Test ID              |
-|----------------|--------------------------------|-------------------------------------------------------------------------------------------------------|----------------------|
-| FR-01          | tag, validation                | addTag(), validateDescription(), validateUnit(), validateAlarmLimits()                                | UT-17, demonstration |
-| FR-02          | validation, tag                | validateTagId(), addTag()                                                                             | UT-09 to UT-12       |
-| FR-03          | tag, validation                | editTag(), validateAlarmLimits()                                                                      | UT-17, demonstration |
-| FR-04          | tag, reading                   | deleteTag(), deleteReadingsByTag()                                                                    | Demonstration        |
-| FR-05          | tag, report                    | findTagById(), printTags()                                                                            | Demonstration        |
-| FR-06          | reading, validation            | addReading(), validateTimestamp(), parseDouble()                                                      | UT-13, UT-19         |
-| FR-07          | file_handler                   | importReadingsCsv()                                                                                   | Demonstration        |
-| FR-08          | validation, reading            | validateTimestamp(), parseDouble(), addReading()                                                      | UT-14, UT-16, UT-19, UT-20 |
-| FR-09          | alarm                          | classifyReading()                                                                                     | UT-05 to UT-08       |
-| FR-10          | reading, report                | filterReadings(), printReadings()                                                                     | Demonstration        |
-| FR-11          | reading                        | sortReadings()                                                                                        | Demonstration        |
-| FR-12          | statistics, reading, report    | calculateMean(), calculateStdDev(), calculateMin(), calculateMax(), getValuesForTag(), printTagStatistics() | UT-01 to UT-04 |
-| FR-13          | alarm                          | calculateTimeInAlarm()                                                                                | UT-18                |
-| FR-14          | report                         | saveShiftReport()                                                                                     | Demonstration        |
-| FR-15          | file_handler                   | saveTags(), loadTags(), saveReadings(), importReadingsCsv()                                           | Demonstration        |
-| FR-16          | validation, report, main       | validateMenuChoice(), readLine(), statusToMessage()                                                   | Negative testing, UT-02, UT-08 |
+| Requirement ID | Module | Function or Feature | Test ID |
+|----------------|--------|---------------------|---------|
+| FR-01 | tag, validation | addTag(), validateDescription(), validateUnit(), validateAlarmLimits() | UT-17, UT-21, UT-23, UT-24 |
+| FR-02 | validation, tag | validateTagId(), addTag() | UT-09 to UT-12, UT-22 |
+| FR-03 | tag, validation | editTag(), validateAlarmLimits() | UT-17, UT-26 |
+| FR-04 | tag, reading | deleteTag(), deleteReadingsByTag() | UT-27, UT-32 |
+| FR-05 | tag, report | findTagById(), printTags() | UT-25, UT-53, UT-54 |
+| FR-06 | reading, validation | addReading(), validateTimestamp(), parseDouble() | UT-13, UT-19, UT-28, UT-31 |
+| FR-07 | file_handler | importReadingsCsv() | UT-47 to UT-49 |
+| FR-08 | validation, reading | validateTimestamp(), parseDouble(), addReading() | UT-14 to UT-16, UT-19, UT-20, UT-29, UT-30, UT-47 |
+| FR-09 | alarm, report | classifyReading(), alarmStatusToText(), printAlarmSummary() | UT-05 to UT-08, UT-52, UT-59 |
+| FR-10 | reading, report | filterReadings(), printReadings() | UT-33 to UT-35, UT-55, UT-56 |
+| FR-11 | reading | sortReadings() | UT-36 to UT-38 |
+| FR-12 | statistics, reading, report | calculateMean(), calculateStdDev(), calculateMin(), calculateMax(), getValuesForTag(), printTagStatistics() | UT-01 to UT-04, UT-39, UT-40, UT-57, UT-58 |
+| FR-13 | alarm, report | calculateTimeInAlarm(), printAlarmSummary() | UT-18, UT-59 |
+| FR-14 | report | saveShiftReport() | UT-60 to UT-62 |
+| FR-15 | file_handler | saveTags(), loadTags(), saveReadings(), importReadingsCsv() | UT-41 to UT-46, UT-50 |
+| FR-16 | validation, report, file_handler, main | validateMenuChoice(), readLine(), statusToMessage(), file error handling | UT-02, UT-08, UT-42, UT-44, UT-45, UT-49, UT-50, UT-51, UT-61 and negative testing |
 
 ---
 
@@ -210,7 +210,9 @@ The software is organised in layers. `main.c` controls the menu and workflow onl
               +---------------------------+
 ```
 
-A cleaner version of this diagram will be saved as `docs/architecture.png`.
+The same architecture, drawn with the module dependencies:
+
+![Software architecture](architecture.png)
 
 ## 5.3 High-Level Workflow
 
@@ -274,8 +276,10 @@ process-data-logger-alarm-analyzer/
 |-- src/        main.c, tag.c, reading.c, statistics.c, alarm.c,
 |               validation.c, file_handler.c, report.c
 |-- include/    common.h and one header per module
-|-- tests/      test_statistics.cpp, test_alarm.cpp, test_validation.cpp
-|-- data/       sample_readings.csv, sample_tags.txt
+|-- tests/      test_alarm.cpp, test_file_handler.cpp, test_reading.cpp,
+|               test_report.cpp, test_statistics.cpp, test_tag.cpp,
+|               test_validation.cpp
+|-- data/       sample_tags.txt, sample_readings.csv, sample_readings_invalid.csv
 |-- docs/       project_proposal.md, detailed_design.md, architecture.png
 |-- Makefile
 |-- README.md

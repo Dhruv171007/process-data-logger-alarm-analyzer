@@ -28,11 +28,38 @@ The application manages **tags** (measurement points such as `TT-101`, each with
 - Save and load tags and readings from files
 - Safe input handling: invalid input never crashes the program
 
+## Functional Requirements Summary
+
+The full list with priorities and verification methods is in [`docs/project_proposal.md`](docs/project_proposal.md), and each requirement is linked to its module and unit tests there.
+
+| ID | The system shall... |
+|----|---------------------|
+| FR-01 | add a new tag with ID, description, unit and four alarm limits. |
+| FR-02 | validate tag IDs for format and reject duplicates. |
+| FR-03 | edit the description, unit and alarm limits of an existing tag. |
+| FR-04 | delete a tag together with its readings. |
+| FR-05 | search for a tag by ID and list all tags. |
+| FR-06 | add a reading manually after validating tag, timestamp and value. |
+| FR-07 | import readings from a CSV file and report how many lines were rejected. |
+| FR-08 | reject readings with an unknown tag, invalid timestamp or invalid value. |
+| FR-09 | classify each reading as Normal, Low, Low-Low, High or High-High. |
+| FR-10 | filter readings by tag, alarm status and time range. |
+| FR-11 | sort readings by value or by timestamp. |
+| FR-12 | calculate minimum, maximum, mean and standard deviation for a tag. |
+| FR-13 | calculate the time a tag spent in alarm. |
+| FR-14 | generate a shift report and save it to a text file. |
+| FR-15 | save tags and readings to files and load them at startup. |
+| FR-16 | handle invalid menu choices and missing or corrupt files without crashing. |
+
 ---
 
 ## Architecture
 
-`main.c` only controls the menu and the workflow. Every other module has one responsibility. All modules use the shared types and constants in `common.h`. Arrows show "uses".
+`main.c` only controls the menu and the workflow. Every other module has one responsibility. All modules use the shared types and constants in `common.h`.
+
+![Software architecture](docs/architecture.png)
+
+The module dependencies (an arrow means "uses"):
 
 ```mermaid
 flowchart TD
@@ -106,7 +133,8 @@ process-data-logger-alarm-analyzer/
 |   `-- sample_readings_invalid.csv
 |-- docs/
 |   |-- project_proposal.md
-|   `-- detailed_design.md
+|   |-- detailed_design.md
+|   `-- architecture.png
 |-- Makefile
 |-- README.md
 |-- .gitignore
