@@ -17,7 +17,7 @@
 #define MAIN_MENU_MAX  8
 #define TAG_MENU_MAX   5
 
-/* ---------- Input and output helpers ---------- */
+// Input and output helpers
 
 static void showStatus(Status_t status)
 {
@@ -57,7 +57,7 @@ static Status_t promptChoice(const char *prompt, int min, int max, int *choice)
     return validateMenuChoice(line, min, max, choice);
 }
 
-/* Returns 1 only when the user answers y or Y. */
+// Returns 1 only when the user answers y or Y.
 static int confirm(const char *prompt)
 {
     char line[MAX_LINE_LEN];
@@ -69,7 +69,7 @@ static int confirm(const char *prompt)
     return (line[0] == 'y' || line[0] == 'Y') && line[1] == '\0';
 }
 
-/* Reads an optional timestamp. An empty answer leaves 'destination' empty. */
+// Reads an optional timestamp. An empty answer leaves 'destination' empty.
 static Status_t promptOptionalTimestamp(const char *prompt, char *destination)
 {
     char line[MAX_LINE_LEN];
@@ -91,11 +91,11 @@ static Status_t promptOptionalTimestamp(const char *prompt, char *destination)
     {
         return status;
     }
-    strcpy(destination, line);          /* validated: exactly TIMESTAMP_LEN characters */
+    strcpy(destination, line);          // validated: exactly TIMESTAMP_LEN characters
     return STATUS_SUCCESS;
 }
 
-/* Converts text such as "high-high" to an AlarmStatus_t. Returns 1 on success. */
+// Converts text such as "high-high" to an AlarmStatus_t. Returns 1 on success.
 static int parseAlarmStatus(const char *text, AlarmStatus_t *status)
 {
     char upper[16];
@@ -125,7 +125,7 @@ static int parseAlarmStatus(const char *text, AlarmStatus_t *status)
     return 0;
 }
 
-/* ---------- Menus ---------- */
+// ---------- Menus ----------
 
 static void printMainMenu(void)
 {
@@ -152,7 +152,7 @@ static void printTagMenu(void)
     printf(" 0. Back\n");
 }
 
-/* ---------- Tag handlers ---------- */
+// ---------- Tag handlers ----------
 
 /* Reads description, unit and the four limits into 'tag' (the ID is not touched).
    Text is validated before it is copied, so it always fits the tag fields. */
@@ -380,7 +380,7 @@ static void handleManageTags(Tag_t *tags, int *tag_count, Reading_t *readings, i
     }
 }
 
-/* ---------- Reading handlers ---------- */
+// ---------- Reading handlers ----------
 
 static void handleAddReading(const Tag_t *tags, int tag_count, Reading_t *readings, int *reading_count)
 {
@@ -554,7 +554,7 @@ static void handleStatistics(const Tag_t *tags, int tag_count, const Reading_t *
     }
 }
 
-/* ---------- Save, load and report ---------- */
+// ---------- Save, load and report ----------
 
 static Status_t saveAllData(const Tag_t *tags, int tag_count,
                             const Reading_t *readings, int reading_count)
@@ -610,7 +610,7 @@ static void loadStartupData(Tag_t *tags, int *tag_count, Reading_t *readings, in
     printf("Loaded %d tag(s) and %d reading(s).\n", *tag_count, *reading_count);
 }
 
-/* Returns 1 when the program should exit. */
+// Returns 1 when the program should exit.
 static int handleSaveAndExit(const Tag_t *tags, int tag_count,
                              const Reading_t *readings, int reading_count)
 {
@@ -625,14 +625,14 @@ static int handleSaveAndExit(const Tag_t *tags, int tag_count,
     showStatus(status);
     if (feof(stdin))
     {
-        return 1;                       /* nobody can answer any more questions */
+        return 1;                       // nobody can answer any more questions
     }
     return confirm("Saving failed. Exit without saving? (y/n): ");
 }
 
-/* ---------- Main program ---------- */
+// ---------- Main program ----------
 
-int main(void)
+int main()
 {
     Tag_t tags[MAX_TAGS];
     Reading_t readings[MAX_READINGS];
