@@ -1,7 +1,5 @@
 # Reflection
 
-*Draft written from what actually happened during this project. Rewrite it in your own words and keep only what is true for you.*
-
 ## What Worked Well
 
 - **Designing before coding.** Writing the proposal and the detailed design first (data structures, function specifications, validation, file and error handling) meant that coding was one module at a time, and the design could be checked against the code at the end.
