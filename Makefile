@@ -1,6 +1,15 @@
 # Process Data Logger and Alarm Analyzer - Makefile
 # Targets: all, run, test, clean
 
+# ---------- Compilers, options and libraries ----------
+C_COMPILER     = gcc
+CPP_COMPILER   = g++
+C_OPTIONS      = -Wall -Wextra -Wpedantic -std=c11 -Iinclude -MMD -MP
+CPP_OPTIONS    = -Wall -Wextra -Wpedantic -std=c++17 -Iinclude
+APP_LIBRARIES  = -lm
+TEST_LIBRARIES = -lgtest -lgtest_main -pthread -lm
+
+# ---------- Folders and files ----------
 BUILD    = build
 TARGET   = $(BUILD)/analyzer.exe
 TEST_BIN = $(BUILD)/run_tests.exe
@@ -15,10 +24,10 @@ TEST_SRC = $(wildcard tests/*.cpp)
 all: $(TARGET)
 
 $(TARGET): $(OBJ)
-	gcc $(OBJ) -o $@ -lm
+	$(C_COMPILER) $(OBJ) -o $@ $(APP_LIBRARIES)
 
 $(BUILD)/%.o: src/%.c | $(BUILD)
-	gcc -Wall -Wextra -Wpedantic -std=c11 -Iinclude -MMD -MP -c $< -o $@
+	$(C_COMPILER) $(C_OPTIONS) -c $< -o $@
 
 $(BUILD):
 	mkdir -p $(BUILD)
@@ -30,7 +39,7 @@ test: $(TEST_BIN)
 	./$(TEST_BIN)
 
 $(TEST_BIN): $(LIB_OBJ) $(TEST_SRC) | $(BUILD)
-	g++ -Wall -Wextra -Wpedantic -std=c++17 -Iinclude $(TEST_SRC) $(LIB_OBJ) -o $@ -lgtest -lgtest_main -pthread -lm
+	$(CPP_COMPILER) $(CPP_OPTIONS) $(TEST_SRC) $(LIB_OBJ) -o $@ $(TEST_LIBRARIES)
 
 clean:
 	rm -rf $(BUILD)
