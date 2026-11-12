@@ -886,16 +886,19 @@ This compiles the C sources and the test files, links them with Google Test, run
 
 ## 12.2 Build Configuration
 
-| Item | Value |
-|------|-------|
-| C compiler | `gcc` |
-| C++ compiler | `g++` |
-| C compiler flags | `-Wall -Wextra -Wpedantic -std=c11 -Iinclude -MMD -MP` |
-| C++ compiler flags | `-Wall -Wextra -Wpedantic -std=c++17 -Iinclude` |
-| Include paths | `include/` |
-| gTest libraries | `-lgtest -lgtest_main -pthread -lm` |
-| Application executable | `build/analyzer.exe` |
-| Test executable | `build/run_tests.exe` |
+The compilers, options and libraries are kept in variables at the top of the Makefile, so they are changed in one place.
+
+| Item | Makefile Variable | Value |
+|------|-------------------|-------|
+| C compiler | `C_COMPILER` | `gcc` |
+| C++ compiler (tests) | `CPP_COMPILER` | `g++` |
+| C compiler options | `C_OPTIONS` | `-Wall -Wextra -Wpedantic -std=c11 -Iinclude -MMD -MP` |
+| C++ compiler options | `CPP_OPTIONS` | `-Wall -Wextra -Wpedantic -std=c++17 -Iinclude` |
+| Application libraries | `APP_LIBRARIES` | `-lm` |
+| gTest libraries | `TEST_LIBRARIES` | `-lgtest -lgtest_main -pthread -lm` |
+| Include path | (inside the option variables) | `include/` |
+| Application executable | `TARGET` | `build/analyzer.exe` |
+| Test executable | `TEST_BIN` | `build/run_tests.exe` |
 
 Source files are compiled separately with one pattern rule, and the sources and tests are found with `wildcard`, so a new module is picked up automatically. The `-MMD -MP` flags create dependency files that the Makefile includes, so a changed header rebuilds only the files that use it. `main.o` is left out when linking the tests.
 
@@ -915,7 +918,8 @@ process-data-logger-alarm-analyzer/
 |               test_report.cpp, test_statistics.cpp, test_tag.cpp,
 |               test_validation.cpp
 |-- data/       sample_tags.txt, sample_readings.csv, sample_readings_invalid.csv
-|-- docs/       project_proposal.md, detailed_design.md, architecture.png
+|-- docs/       project_proposal.md, detailed_design.md, architecture.png,
+|               reflection.md
 |-- Makefile
 |-- README.md
 |-- .gitignore
