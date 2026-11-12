@@ -134,7 +134,8 @@ process-data-logger-alarm-analyzer/
 |-- docs/
 |   |-- project_proposal.md
 |   |-- detailed_design.md
-|   `-- architecture.png
+|   |-- architecture.png
+|   `-- reflection.md
 |-- Makefile
 |-- README.md
 |-- .gitignore
@@ -379,7 +380,7 @@ This is an individual project.
 | Roll number | 612509017 |
 | Programme | B.Tech, Instrumentation and Control Engineering |
 
-Design documents: [`docs/project_proposal.md`](docs/project_proposal.md) and [`docs/detailed_design.md`](docs/detailed_design.md).
+Design documents: [`docs/project_proposal.md`](docs/project_proposal.md) and [`docs/detailed_design.md`](docs/detailed_design.md). Project reflection: [`docs/reflection.md`](docs/reflection.md).
 
 ## Known Limitations
 
